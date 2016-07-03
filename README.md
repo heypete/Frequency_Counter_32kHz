@@ -11,8 +11,10 @@ You can find a Thunderbolt on eBay, but the price is no longer as low as it was 
 
 Setup:
 
-1. Connect the PPS signal across a 50 ohm resistor to the Arduino digital pin 2. The resistor is necessary for impedance matching and ensuring that ringing on the line doesn't cause voltage spikes that will damage your Arduino (and they will!).
-2. Connect the 32kHz signal to the Arduino digital pin 5. Ensure you have the necessary pull-up resistor, if applicable. With the DS3231 I find that 10k pullup works well.
-3. Compile and run the sketch.
-4. Open the serial console at 9600 bps, no parity bit, one stop bit.
-5. When prompted, enter the number of seconds you'd like to measure. 100-1000 seconds is pretty typical.
+1. Connect the Thunderbolt's ground to the Arduino ground to form a common ground.
+2. Connect the PPS signal line to a 50 ohm resistor to the common ground. The resistor is necessary for impedance matching and ensuring that ringing on the line doesn't cause voltage spikes that will damage your Arduino (and they will!).
+3. Connect the PPS signal line to the Arduion digital pin 2.
+4. Connect the 32kHz signal to the Arduino digital pin 5. Ensure you have the necessary pull-up resistor, if applicable. With the DS3231 I find that 10k pullup works well.
+5. Compile and run the sketch.
+6. Open the serial console at 9600 bps, no parity bit, one stop bit.
+7. When prompted, enter the number of seconds you'd like to measure. 100-1000 seconds is pretty typical.
