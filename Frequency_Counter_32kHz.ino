@@ -58,19 +58,28 @@ void setup() {
   Serial.print(maxSeconds);
   Serial.println(" seconds");
 
+  /* To prevent mis-counting, we need to wait for the first full second, then reset the counters.  */
+  Serial.print("Waiting for first full second...");
+  while (numSeconds < 2) {
+  }
+  Serial.println("done.");
+  Serial.println("Starting...");
+
+  /* Resetting the counters must be atomic, so we disable interrupts first, reset the counters, then re-enable interrupts.*/
+  cli();
+  TCNT1 = 0;
+  numSeconds = 0;
+  timerOverflows = 0;
+  ticks = 0;
+  printTicks = 0;
+  sei();
 }
 
 
 void loop() {
   if (firstRun) {
-    /* To prevent mis-counting, we need to wait for the first full second, then reset the counters.  */
-    Serial.print("Waiting for first full second...");
     while (numSeconds < 2) {
     }
-    Serial.println("done.");
-    Serial.println("Starting...");
-
-    /* Resetting the counters must be atomic, so we disable interrupts first, reset the counters, then re-enable interrupts.*/
     cli();
     TCNT1 = 0;
     numSeconds = 0;
@@ -80,7 +89,6 @@ void loop() {
     sei();
     firstRun = 0;
   }
-  
   static unsigned int oldNumSeconds = 65536;
   static unsigned long oldTicks = 0;
   cli();
@@ -88,7 +96,7 @@ void loop() {
   unsigned long printTicks = ticks;
   sei();
   if (printNumSeconds > oldNumSeconds) {
-    printTicks += timerOverflows * 65536;
+    printTicks += timerOverflows*65536;
     Serial.print(printNumSeconds);
     Serial.print(" seconds, ");
     Serial.print(printTicks - oldTicks);
