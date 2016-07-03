@@ -107,12 +107,8 @@ void printResults() {
   }
 }
 
-
-void setup() {
-
-  timer1_init();
-
-  /* Setup serial to run at 9600 bps, no parity, one stop bit. */
+void serial_init(){
+    /* Setup serial to run at 9600 bps, no parity, one stop bit. */
   Serial.begin(9600);
 
   /* Prompt for total number of seconds to count for. */
@@ -124,6 +120,12 @@ void setup() {
   Serial.print("Counting for ");
   Serial.print(maxSeconds);
   Serial.println(" seconds.");
+}
+
+void setup() {
+
+  timer1_init();
+  serial_init();
 
 }
 
