@@ -1,21 +1,53 @@
-/* Initialize variables. Interrupt-accessible variables must be global and volatile. */
+/* Declare and initialize variables. Interrupt-accessible variables must be global and volatile. */
 volatile unsigned int timerOverflows = 0;
 volatile unsigned int numSeconds = 0;
 volatile unsigned long ticks = 0;
 unsigned int maxSeconds = 0;
-unsigned int printDifference = 0;
 unsigned int printNumSeconds = 0;
-unsigned int printTimerOverflows = 0;
-unsigned long printTicks = 0 - 1;
 unsigned int oldNumSeconds = 65536;
-unsigned long oldTicks = 0;
+unsigned long printTicks = 0;
 boolean firstRun = 1;
 
+void setup() {
+
+  timer1_init(); // Setup TIMER1 properly to count the 32kHz signals.
+  serial_init(); // Setup serial communications.
+
+}
+
+
+void loop() {
+  if (firstRun) { // If this is the first time through the loop, reset everything to start from a consistent state.
+    resetCounters();
+  }
+
+  /* Interrupts can occur at any time and can change the "ticks" and "numSeconds" variables without warning, causing corruption.
+   * We can avoid this by briefly disabling interrupts, copying the values into other variables not changed by interrupts,
+   * then re-enabling interrupts. This is very fast and only takes a few clock cycles.
+  */
+  cli(); // Disable interrupts.
+  printNumSeconds = numSeconds; // Copy value into new variable.
+  printTicks = ticks; // Copy value into new variable.
+  sei(); // Re-enable interrupts.
+
+  /* Wait until we have new data, then print the results to the serial console.
+   * We could use delay(1000) instead, but over long periods of time the start of the serial message would drift relative
+   * to the PPS signal marking the start of each second. This drift might cause issues, so it's better to keep the serial
+   * messages more closely aligned to the start of the second.
+   */
+  if (printNumSeconds > oldNumSeconds) { // Check to see if its a new second.
+    printResults();
+  }
+}
+
+/* ----------------------------------------------------------------------
+ * All the various functions follow.
+ * ----------------------------------------------------------------------
+ */
 void startstop() {
   /* This is called by the PPS interrupt. It needs to be fast. */
   ticks = TCNT1; // Read TIMER1 and save its current value to a global variable.
   numSeconds++; // Increment the number of seconds as marked by the PPS signal.
-
 }
 
 /* TIMER1 is a 16-bit counter. Each tick of the 32kHz line increments the counter by one.
@@ -33,8 +65,9 @@ void timer1_init() {
   TCCR1A &= ~((1 << WGM12) | (1 << WGM11) | (1 << WGM10)); // Turn off the waveform generator.
 
   /* Setting CS12 and CS11 to 1 sets TIMER1 to use an external clock source and trigger on the falling edge.
+   * Setting CS12, CS11, and CS10 triggers on the rising edge.
    * Why the falling edge? With a 10k pull-up resistor on the DS3231's 32kHz pin, I found the falling edge to be much sharper.
-   * Your mileage may vary.
+   * Your mileage may vary and you can switch this behavior by commenting and uncommenting the two following lines, respectively.
    */
   TCCR1B |= ((1 << CS12) | (1 << CS11)); // Trigger on falling edge.
   // TCCR1B |= ((1 << CS12) | (1 << CS11) | (1 << CS10)); // Trigger on rising edge.
@@ -75,6 +108,9 @@ void resetCounters() {
 }
 
 void printResults() {
+  static unsigned long oldTicks = 0;
+  static unsigned int printTimerOverflows = 0;
+
   /* TIMER1 overflows every 65536 ticks. Each time it does it fires an interrupt. We multiply the number of times the timer has overflowed
   by 65536 ticks, then add the current value of the timer. This yields the total number of ticks since the timer was reset. */
   printTicks += timerOverflows * 65536;
@@ -87,12 +123,13 @@ void printResults() {
   Serial.print(printTicks);
   Serial.print(" total ticks, ");
   Serial.print(timerOverflows);
-  Serial.print(" timer overflows, ");
+  Serial.print(" timer1 overflows, ");
 
   /* An ideal 32kHz oscillator ticks 32768 times per second. Here we calculate the difference between the number of actual ticks counted
   in a given time period compared with the ideal number over the same time period and convert it to parts per million. */
   float result = 0;
   result = (1.0 - ((float)printNumSeconds * 32768.0 / (float)printTicks)) * 1000000.0;
+  Serial.print("stability: ");
   Serial.print(result);
   Serial.println(" ppm");
 
@@ -107,8 +144,8 @@ void printResults() {
   }
 }
 
-void serial_init(){
-    /* Setup serial to run at 9600 bps, no parity, one stop bit. */
+void serial_init() {
+  /* Setup serial to run at 9600 bps, no parity, one stop bit. */
   Serial.begin(9600);
 
   /* Prompt for total number of seconds to count for. */
@@ -120,36 +157,4 @@ void serial_init(){
   Serial.print("Counting for ");
   Serial.print(maxSeconds);
   Serial.println(" seconds.");
-}
-
-void setup() {
-
-  timer1_init();
-  serial_init();
-
-}
-
-
-void loop() {
-  if (firstRun) { // If this is the first time through the loop, reset everything to start from a consistent state.
-    resetCounters();
-  }
-
-  /* Interrupts can occur at any time and can change the "ticks" and "numSeconds" variables without warning, causing corruption.
-   * We can avoid this by briefly disabling interrupts, copying the values into other variables not changed by interrupts,
-   * then re-enabling interrupts. This is very fast and only takes a few clock cycles.
-  */
-  cli(); // Disable interrupts.
-  printNumSeconds = numSeconds; // Copy value into new variable.
-  printTicks = ticks; // Copy value into new variable.
-  sei(); // Re-enable interrupts.
-
-  /* Wait until we have new data, then print the results to the serial console.
-   * We could use delay(1000) instead, but over long periods of time the start of the serial message would drift relative
-   * to the PPS signal marking the start of each second. This drift might cause issues, so it's better to keep the serial
-   * messages more closely aligned to the start of the second.
-   */
-  if (printNumSeconds > oldNumSeconds) { // Check to see if its a new second.
-    printResults();
-  }
 }
